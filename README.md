@@ -2,6 +2,8 @@
 
 Run several Claude Code sessions side by side. Each session gets its own git worktree, and a sidebar of tabs shows what every session is doing.
 
+
+
 ```
 ┌─ ctabs ──────────────┬──────────────────────────────┐
 │▌1 auth-refactor      │                              │
