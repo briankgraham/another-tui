@@ -67,11 +67,16 @@ func desktop(title, body, url string) {
 				return
 			}
 		}
-		script := "display notification " + appleQuote(body) + " with title " + appleQuote(title)
 		if url != "" {
-			script += " subtitle " + appleQuote(url)
+			// Plain banners aren't clickable, so ask with a dialog that opens
+			// the link in the default browser. It dismisses itself after a while.
+			start("osascript", "-e", "set r to display dialog "+appleQuote(body+"\n"+url)+
+				" with title "+appleQuote(title)+
+				` buttons {"Dismiss", "Open PR"} default button "Open PR" giving up after 120`,
+				"-e", `if button returned of r is "Open PR" then open location `+appleQuote(url))
+			return
 		}
-		start("osascript", "-e", script)
+		start("osascript", "-e", "display notification "+appleQuote(body)+" with title "+appleQuote(title))
 	case "linux":
 		if url != "" {
 			body += "\n" + url
