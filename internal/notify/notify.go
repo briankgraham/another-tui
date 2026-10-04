@@ -2,6 +2,7 @@
 package notify
 
 import (
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -88,6 +89,17 @@ func desktop(title, body, url string) {
 		}
 		start("notify-send", title, body)
 	}
+}
+
+// terminalBundleID guesses the macOS app hosting this terminal, or "".
+func terminalBundleID() string {
+	return map[string]string{
+		"Apple_Terminal": "com.apple.Terminal",
+		"iTerm.app":      "com.googlecode.iterm2",
+		"ghostty":        "com.mitchellh.ghostty",
+		"WezTerm":        "com.github.wez.wezterm",
+		"vscode":         "com.microsoft.VSCode",
+	}[os.Getenv("TERM_PROGRAM")]
 }
 
 // linkLabel turns a PR URL into "Open PR #123".
