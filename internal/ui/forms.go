@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"os"
 	"strings"
@@ -134,12 +135,23 @@ func RunClose(id string) error {
 	// lose; if either check fails, assume there is.
 	d, diffErr := worktree.Diff(s.Worktree, s.BaseCommit)
 	commits, commitsErr := worktree.BranchCommits(s.Repo, s.BaseCommit, s.Branch)
+	// Remove deletes ignored files too (.env, build output); Diff doesn't see them.
+	var ignored int
+	var ignoredErr error
+	if diffErr == nil {
+		ignored, ignoredErr = worktree.Ignored(s.Worktree)
+	}
 	var desc []string
 	desc = append(desc, sDim.Render(s.Branch+" · "+s.Worktree))
 	if diffErr != nil {
 		desc = append(desc, sNeeds.Render("⚠ couldn't check for uncommitted changes: "+diffErr.Error()))
 	} else if d.Dirty > 0 {
 		desc = append(desc, sNeeds.Render(fmt.Sprintf("⚠ %d uncommitted change(s) will be discarded", d.Dirty)))
+	}
+	if ignoredErr != nil {
+		desc = append(desc, sNeeds.Render("⚠ couldn't check for ignored files: "+ignoredErr.Error()))
+	} else if ignored > 0 {
+		desc = append(desc, sNeeds.Render(fmt.Sprintf("⚠ %d ignored file(s)/folder(s) (e.g. .env) will be deleted", ignored)))
 	}
 	if commitsErr != nil {
 		desc = append(desc, sNeeds.Render("⚠ couldn't count commits on the branch: "+commitsErr.Error()))
@@ -151,7 +163,7 @@ func RunClose(id string) error {
 	del := huh.NewOption("Remove worktree and delete branch", "delete")
 	cancel := huh.NewOption("Cancel", "cancel")
 	opts := []huh.Option[string]{del, keep, cancel}
-	if diffErr != nil || commitsErr != nil || commits > 0 || d.Dirty > 0 {
+	if diffErr != nil || commitsErr != nil || ignoredErr != nil || commits > 0 || d.Dirty > 0 || ignored > 0 {
 		opts = []huh.Option[string]{keep, del, cancel}
 	}
 	choice := opts[0].Value
@@ -164,7 +176,14 @@ func RunClose(id string) error {
 		}
 		return nil
 	}
-	if err := app.CloseSession(s.ID, choice == "delete"); err != nil {
+	var seen *app.CloseSeen
+	if diffErr == nil && ignoredErr == nil {
+		seen = &app.CloseSeen{Dirty: d.Dirty, Ignored: ignored, Commits: commits}
+		if commitsErr != nil {
+			seen.Commits = math.MaxInt // the user was told we couldn't count; don't block on it
+		}
+	}
+	if err := app.CloseSession(s.ID, choice == "delete", seen); err != nil {
 		return fail(err)
 	}
 	return nil

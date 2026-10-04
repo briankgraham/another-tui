@@ -14,11 +14,6 @@ Ideas for ctabs, roughly in priority order.
 ## Review findings (2026-10-04)
 From a full code review. Roughly by severity.
 
-- [ ] **Close: ignored files** like `.env` aren't counted as uncommitted, but `worktree remove --force` deletes them. Warn about them.
-- [ ] **Close: stale check**: the diff is taken when the popup opens while the agent keeps working. Check again after the pane is killed, before removing.
-- [ ] **`configure` aborts on any tmux error** (`app.go` configure): tmux < 3.3 has no `popup-border-*`, and a bad `"leader"` breaks `bind`. ctabs then fails on every run. Make cosmetic `set`s best-effort, validate the leader (fall back to `C-]`), and kill the server if `startServer` fails partway.
-- [ ] **First prompt can be parsed as a flag** (`claude.go` Command): pass `--` before `o.Prompt`.
-- [ ] **`git status` takes `index.lock`** every 3s in every worktree, so the agent's `git commit` fails at random. Use `git --no-optional-locks` (or `GIT_OPTIONAL_LOCKS=0`) for all Diff commands.
 - [ ] **Diff polling piles up** (`sidebar.go` diffTicker): re-arm only after `diffMsg` arrives; drop out-of-order `diffMsg`/`refreshMsg`.
 - [ ] **Status read-modify-write isn't locked** (`store.UpdateStatusIf`, `hook` in main.go): a hook and the reconciler, or two hooks, can lose each other's update. Add a per-id flock.
 - [ ] **A session can become impossible to close** (`worktree.Remove`, `CloseSession`): if the repo was moved or the branch is already gone, it errors forever after killing the pane. Treat "branch not found" and a missing repo as success, and always drop the state entry once the pane is gone.
@@ -58,3 +53,4 @@ From a full code review. Roughly by severity.
 - [x] Close popup defaults to keeping the branch when it can't inspect the worktree or count the branch's commits (counted from the main repo, so it works when the worktree is gone)
 - [x] Resume follows `/clear` and `/resume` (current conversation id comes from hooks); `/clear` no longer shows the session as exited
 - [x] Restore after reboot clears all old pane ids up front and keeps going past a session that fails
+- [x] Review fixes: close warns about ignored files (`.env`) and re-checks after the pane is killed; `configure` tolerates old tmux and a bad leader key (and tears down a half-started server); the first prompt follows `--`; git calls use `--no-optional-locks`

@@ -13,7 +13,9 @@ import (
 )
 
 func git(dir string, args ...string) (string, error) {
-	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	// --no-optional-locks: status/diff refresh the index, and taking index.lock
+	// here would make the agent's own `git commit` fail at random.
+	cmd := exec.Command("git", append([]string{"--no-optional-locks", "-C", dir}, args...)...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {
@@ -180,6 +182,16 @@ func Diff(path, baseCommit string) (Stats, error) {
 		st.Commits, _ = strconv.Atoi(n)
 	}
 	return st, nil
+}
+
+// Ignored counts untracked-but-ignored entries (.env, build output, ...). Diff
+// leaves them out, but Remove deletes them. Directories count once.
+func Ignored(path string) (int, error) {
+	out, err := git(path, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory")
+	if err != nil {
+		return 0, err
+	}
+	return countLines(out), nil
 }
 
 func countLines(s string) int {

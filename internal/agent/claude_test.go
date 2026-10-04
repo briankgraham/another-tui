@@ -98,7 +98,7 @@ func TestClaudeMapHookPR(t *testing.T) {
 func TestClaudeCommand(t *testing.T) {
 	c := claude{}
 	fresh := c.Command(LaunchOpts{SessionID: "u1", Model: "opus", SettingsPath: "/h.json", Prompt: "hi"})
-	want := []string{"claude", "--model", "opus", "--settings", "/h.json", "--session-id", "u1", "hi"}
+	want := []string{"claude", "--model", "opus", "--settings", "/h.json", "--session-id", "u1", "--", "hi"}
 	if !slices.Equal(fresh, want) {
 		t.Errorf("fresh: %q", fresh)
 	}

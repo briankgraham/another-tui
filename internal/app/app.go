@@ -318,8 +318,43 @@ func StagedSession() (store.Session, bool) {
 	return store.Session{}, false
 }
 
-// CloseSession kills the session's pane and removes its worktree.
-func CloseSession(id string, deleteBranch bool) error {
+// CloseSeen is what the close popup showed the user. CloseSession re-measures
+// after the pane is killed and refuses to delete anything beyond it: the agent
+// keeps working while the popup is open.
+type CloseSeen struct {
+	Dirty, Ignored, Commits int
+}
+
+// stale reports what grew since seen, or "" when removing is still safe.
+func (s *CloseSeen) stale(sess store.Session, deleteBranch bool) (string, error) {
+	if _, err := os.Stat(sess.Worktree); err == nil {
+		d, err := worktree.Diff(sess.Worktree, sess.BaseCommit)
+		if err != nil {
+			return "", fmt.Errorf("couldn't re-check the worktree: %w", err)
+		}
+		if d.Dirty > s.Dirty {
+			return fmt.Sprintf("uncommitted changes grew from %d to %d", s.Dirty, d.Dirty), nil
+		}
+		ign, err := worktree.Ignored(sess.Worktree)
+		if err != nil {
+			return "", fmt.Errorf("couldn't re-check ignored files: %w", err)
+		}
+		if ign > s.Ignored {
+			return fmt.Sprintf("ignored files grew from %d to %d", s.Ignored, ign), nil
+		}
+	}
+	if deleteBranch {
+		if n, err := worktree.BranchCommits(sess.Repo, sess.BaseCommit, sess.Branch); err == nil && n > s.Commits {
+			return fmt.Sprintf("branch commits grew from %d to %d", s.Commits, n), nil
+		}
+	}
+	return "", nil
+}
+
+// CloseSession kills the session's pane and removes its worktree. A non-nil seen
+// is re-checked once the pane is gone; if more work appeared meanwhile, nothing
+// is removed and the session stays (restartable with R).
+func CloseSession(id string, deleteBranch bool, seen *CloseSeen) error {
 	st, err := store.Load()
 	if err != nil {
 		return err
@@ -350,6 +385,15 @@ func CloseSession(id string, deleteBranch bool) error {
 	}
 	if s.PaneID != "" {
 		_ = tmux.KillPane(s.PaneID)
+	}
+	if seen != nil {
+		why, err := seen.stale(*s, deleteBranch)
+		if err != nil {
+			return err
+		}
+		if why != "" {
+			return fmt.Errorf("%s while the popup was open; nothing was removed", why)
+		}
 	}
 	if err := worktree.Remove(s.Repo, s.Worktree, s.Branch, deleteBranch); err != nil {
 		return err
@@ -424,7 +468,14 @@ func repoOrHome(repo string) string {
 	return home
 }
 
-func startServer(repo string) error {
+func startServer(repo string) (err error) {
+	defer func() {
+		// A half-built server would look healthy to the next run (has-session) and
+		// skip setup; tear it down so the next attempt starts clean.
+		if err != nil {
+			_, _ = tmux.Run("kill-server")
+		}
+	}()
 	exe := Exe()
 	dir := repoOrHome(repo)
 	if _, err := tmux.Run("-f", "/dev/null", "new-session", "-d", "-s", tmux.MainSession, "-n", "ctabs",
@@ -468,16 +519,14 @@ func configure(exe, sidebar string) error {
 	popup := func(w, h, sub string) []string {
 		return []string{"display-popup", "-E", "-w", w, "-h", h, q + " " + sub}
 	}
-	cmds := [][]string{
+	// Cosmetic and version-dependent options: older tmux lacks some (e.g.
+	// popup-border-* before 3.3), and ctabs works fine without them.
+	for _, c := range [][]string{
 		{"set", "-s", "escape-time", "0"},
 		{"set", "-s", "extended-keys", "on"},
 		{"set", "-s", "focus-events", "on"},
 		{"set", "-as", "terminal-features", ",*:RGB"},
 		{"set", "-g", "default-terminal", "tmux-256color"},
-		{"set", "-g", "mouse", "on"},
-		{"set", "-g", "status", "off"},
-		{"set", "-g", "history-limit", "50000"},
-		{"set", "-g", "remain-on-exit", "on"},
 		{"set", "-g", "set-titles", "on"},
 		{"set", "-g", "set-titles-string", "ctabs"},
 		{"set", "-g", "pane-border-lines", "single"},
@@ -485,14 +534,20 @@ func configure(exe, sidebar string) error {
 		{"set", "-g", "pane-active-border-style", "fg=colour141"},
 		{"set", "-g", "popup-border-lines", "rounded"},
 		{"set", "-g", "popup-border-style", "fg=colour141"},
+	} {
+		_, _ = tmux.Run(c...)
+	}
+	cmds := [][]string{
+		{"set", "-g", "mouse", "on"},
+		{"set", "-g", "status", "off"},
+		{"set", "-g", "history-limit", "50000"},
+		{"set", "-g", "remain-on-exit", "on"},
 		{"set-hook", "-g", "client-resized", "resize-pane -t " + sidebar + " -x " + strconv.Itoa(tmux.SidebarWidth)},
 		{"set-hook", "-g", "client-attached", "resize-pane -t " + sidebar + " -x " + strconv.Itoa(tmux.SidebarWidth)},
 		{"bind", "-n", "M-j", "run-shell", "-b", q + " switch next"},
 		{"bind", "-n", "M-k", "run-shell", "-b", q + " switch prev"},
 		{"bind", "-n", "M-.", "run-shell", "-b", q + " switch attention"},
 		{"bind", "-n", "M-s", "select-pane", "-t", sidebar},
-		// The leader works in every terminal; the Alt keys need Option-as-Meta on macOS.
-		{"bind", "-n", leader(), "run-shell", "-b", q + " menu '#{client_name}'"},
 		{"bind", "-n", "M-q", "detach-client"},
 		append([]string{"bind", "-n", "M-n"}, popup("76", "30", "new")...),
 		append([]string{"bind", "-n", "M-x"}, popup("70", "14", "close")...),
@@ -505,7 +560,29 @@ func configure(exe, sidebar string) error {
 			return err
 		}
 	}
-	return nil
+	return bindLeader(q)
+}
+
+// bindLeader binds the configured leader key, falling back to DefaultLeader when
+// tmux rejects it. The leader works in every terminal; the Alt keys need
+// Option-as-Meta on macOS. The key actually bound is recorded for LeaderLabel.
+func bindLeader(q string) error {
+	bind := func(key string) error {
+		_, err := tmux.Run("bind", "-n", key, "run-shell", "-b", q+" menu '#{client_name}'")
+		return err
+	}
+	key := configuredLeader()
+	if err := bind(key); err != nil {
+		if key == DefaultLeader {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "ctabs: invalid leader %q, using %s\n", key, DefaultLeader)
+		key = DefaultLeader
+		if err := bind(key); err != nil {
+			return err
+		}
+	}
+	return tmux.SetOption(tmux.OptLeader, key)
 }
 
 // restoreSessions relaunches every saved session after the server (re)starts.
@@ -630,9 +707,17 @@ func Alert(s store.Session, k notify.Kind, body, url string) {
 	})
 }
 
-func leader() string {
+func configuredLeader() string {
 	a, _ := agent.Get("claude")
 	return LoadConfig(a).Leader
+}
+
+// leader is the key actually bound, which differs from the config when that was invalid.
+func leader() string {
+	if l := tmux.GetOption(tmux.OptLeader); l != "" {
+		return l
+	}
+	return configuredLeader()
 }
 
 // LeaderLabel renders the leader key the way people read it ("C-]" → "^]").
