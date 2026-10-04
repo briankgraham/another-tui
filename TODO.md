@@ -54,3 +54,4 @@ From a full code review. Roughly by severity.
 - [x] Resume follows `/clear` and `/resume` (current conversation id comes from hooks); `/clear` no longer shows the session as exited
 - [x] Restore after reboot clears all old pane ids up front and keeps going past a session that fails
 - [x] Review fixes: close warns about ignored files (`.env`) and re-checks after the pane is killed; `configure` tolerates old tmux and a bad leader key (and tears down a half-started server); the first prompt follows `--`; git calls use `--no-optional-locks`
+
