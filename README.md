@@ -41,6 +41,8 @@ Alt shortcuts (`M-n` new, `M-x` close, `M-j`/`M-k` switch, `M-1`…`M-9` jump, `
 
 A new session starts by asking which repository to work in.
 
+![The repository picker in Search mode, listing recent repositories and others found on this machine](docs/img/picker.svg)
+
 - **Search** (default) lists your recent repositories first, then every git repository found under your home folder. Type to fuzzy-match on the path (`saui` finds `~/SaaS-UI`).
 - **Browse** (`tab`) walks folders like a file manager. Repositories show `⎇` and their branch. `enter` chooses a repository or opens a folder, `←` goes up, `→` opens, typing filters, and `/` opens the highlighted folder.
 - Type or paste a path in either mode (`~/doc/tui`, `/srv/app`) to jump there. Each part is fuzzy-matched, so it doesn't need to be exact.
