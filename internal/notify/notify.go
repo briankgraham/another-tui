@@ -82,7 +82,19 @@ func desktop(title, body, url string) {
 			start("osascript", dialog...)
 			return
 		}
-		start("osascript", "-e", "display notification "+appleQuote(body)+" with title "+appleQuote(title))
+		// Plain osascript banners belong to Script Editor, so clicking one opens it.
+		// terminal-notifier can focus the terminal instead; when it is missing or
+		// denied, fall back to a dialog whose button does that.
+		dialog := []string{"-e", "set r to display dialog " + appleQuote(body) +
+			" with title " + appleQuote(title) +
+			` buttons {"Dismiss", "Go to terminal"} giving up after 30`,
+			"-e", `if button returned of r is "Go to terminal" then tell application ` + appleQuote(terminalApp()) + ` to activate`}
+		if _, err := exec.LookPath("terminal-notifier"); err == nil {
+			script := `terminal-notifier -title "$1" -message "$2" ${3:+-activate "$3"} || { shift 3; exec osascript "$@"; }`
+			start("sh", append([]string{"-c", script, "sh", title, body, terminalBundleID()}, dialog...)...)
+			return
+		}
+		start("osascript", dialog...)
 	case "linux":
 		if url != "" {
 			body += "\n" + url
@@ -100,6 +112,16 @@ func terminalBundleID() string {
 		"WezTerm":        "com.github.wez.wezterm",
 		"vscode":         "com.microsoft.VSCode",
 	}[os.Getenv("TERM_PROGRAM")]
+}
+
+// terminalApp is the name of the app hosting this terminal, for AppleScript.
+func terminalApp() string {
+	if n := map[string]string{
+		"iTerm.app": "iTerm", "ghostty": "Ghostty", "WezTerm": "WezTerm", "vscode": "Visual Studio Code",
+	}[os.Getenv("TERM_PROGRAM")]; n != "" {
+		return n
+	}
+	return "Terminal"
 }
 
 // linkLabel turns a PR URL into "Open PR #123".
