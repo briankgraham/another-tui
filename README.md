@@ -58,7 +58,7 @@ Optional `~/.ctabs/config.json`. `repo_roots` sets where the repository picker l
 }
 ```
 
-If a session opens a GitHub PR during a turn, the "finished" notification links to it. On macOS, clicking the banner opens the PR only if `terminal-notifier` is installed (`brew install terminal-notifier`). Without it, the URL is shown in the banner but isn't clickable.
+If a session opens a GitHub PR during a turn, the "finished" notification links to it. On macOS, clicking the banner opens the PR if `terminal-notifier` is installed (`brew install terminal-notifier`). Without it, a dialog with an "Open PR" button is shown instead.
 
 ## Developing
 
