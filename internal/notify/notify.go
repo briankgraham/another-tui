@@ -33,8 +33,9 @@ func Alert(k Kind, title, body string, o Options) {
 	if o.Sound {
 		playSound(k)
 	}
-	// Banners only help when the terminal is in the background.
-	if o.Desktop && !o.Focused {
+	// Banners only help when the terminal is in the background, except for a
+	// new PR: it is worth a clickable link even while another tab is staged.
+	if o.Desktop && (!o.Focused || o.URL != "") {
 		desktop(title, body, o.URL)
 	}
 }
@@ -62,10 +63,11 @@ func desktop(title, body, url string) {
 		if url != "" {
 			// osascript banners can't open a URL on click; terminal-notifier can.
 			// Without it, ask with a dialog that opens the link in the default
-			// browser. It dismisses itself after a while.
+			// browser. It dismisses itself after a while, and has no default button so
+			// a Return typed into the terminal as it pops up does nothing.
 			dialog := []string{"-e", "set r to display dialog " + appleQuote(body+"\n"+url) +
 				" with title " + appleQuote(title) +
-				` buttons {"Dismiss", "Open PR"} default button "Open PR" giving up after 120`,
+				` buttons {"Dismiss", "Open PR"} giving up after 120`,
 				"-e", `if button returned of r is "Open PR" then open location ` + appleQuote(url)}
 			if _, err := exec.LookPath("terminal-notifier"); err == nil {
 				// terminal-notifier exits non-zero when macOS has denied it notification
