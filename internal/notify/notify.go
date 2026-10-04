@@ -25,16 +25,17 @@ type Options struct {
 	URL string
 }
 
-// Alert tells the user about a session event, unless they are already looking at it.
+// Alert tells the user about a session event, unless they are already looking
+// at it. A new PR always gets its clickable link: the terminal has nothing to click.
 func Alert(k Kind, title, body string, o Options) {
-	if o.OnScreen && o.Focused {
+	watching := o.OnScreen && o.Focused
+	if watching && o.URL == "" {
 		return
 	}
-	if o.Sound {
+	if o.Sound && !watching {
 		playSound(k)
 	}
-	// Banners only help when the terminal is in the background, except for a
-	// new PR: it is worth a clickable link even while another tab is staged.
+	// Banners only help when the terminal is in the background, except for a PR.
 	if o.Desktop && (!o.Focused || o.URL != "") {
 		desktop(title, body, o.URL)
 	}
