@@ -59,21 +59,23 @@ func playSound(k Kind) {
 func desktop(title, body, url string) {
 	switch runtime.GOOS {
 	case "darwin":
-		// osascript banners can't open a URL on click; terminal-notifier can.
 		if url != "" {
+			// osascript banners can't open a URL on click; terminal-notifier can.
+			// Without it, ask with a dialog that opens the link in the default
+			// browser. It dismisses itself after a while.
+			dialog := []string{"-e", "set r to display dialog " + appleQuote(body+"\n"+url) +
+				" with title " + appleQuote(title) +
+				` buttons {"Dismiss", "Open PR"} default button "Open PR" giving up after 120`,
+				"-e", `if button returned of r is "Open PR" then open location ` + appleQuote(url)}
 			if _, err := exec.LookPath("terminal-notifier"); err == nil {
-				start("terminal-notifier", "-title", title, "-subtitle", linkLabel(url),
-					"-message", body, "-open", url)
+				// terminal-notifier exits non-zero when macOS has denied it notification
+				// permission. start() can't see that (and this process exits right
+				// after), so the fallback has to live in the detached shell.
+				script := `terminal-notifier -title "$1" -subtitle "$2" -message "$3" -open "$4" || { shift 4; exec osascript "$@"; }`
+				start("sh", append([]string{"-c", script, "sh", title, linkLabel(url), body, url}, dialog...)...)
 				return
 			}
-		}
-		if url != "" {
-			// Plain banners aren't clickable, so ask with a dialog that opens
-			// the link in the default browser. It dismisses itself after a while.
-			start("osascript", "-e", "set r to display dialog "+appleQuote(body+"\n"+url)+
-				" with title "+appleQuote(title)+
-				` buttons {"Dismiss", "Open PR"} default button "Open PR" giving up after 120`,
-				"-e", `if button returned of r is "Open PR" then open location `+appleQuote(url))
+			start("osascript", dialog...)
 			return
 		}
 		start("osascript", "-e", "display notification "+appleQuote(body)+" with title "+appleQuote(title))
