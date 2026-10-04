@@ -33,6 +33,7 @@ const (
 	OptSidebar     = "@ctabs_sidebar"
 	OptPlaceholder = "@ctabs_placeholder"
 	OptRepo        = "@ctabs_repo"
+	OptLeader      = "@ctabs_leader" // the leader key actually bound
 )
 
 func Command(args ...string) *exec.Cmd {

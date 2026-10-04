@@ -130,3 +130,33 @@ func TestSlug(t *testing.T) {
 		}
 	}
 }
+
+func TestIgnored(t *testing.T) {
+	repo := newRepo(t)
+	write(t, filepath.Join(repo, ".gitignore"), ".env\nbuild/\n")
+	for _, args := range [][]string{{"add", "."}, {"commit", "-qm", "ignore"}} {
+		if _, err := git(repo, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c, err := Create(repo, t.TempDir(), "ign", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, err := Ignored(c.Path); err != nil || n != 0 {
+		t.Fatalf("clean worktree: %d, %v", n, err)
+	}
+	write(t, filepath.Join(c.Path, ".env"), "SECRET=1\n")
+	if err := os.MkdirAll(filepath.Join(c.Path, "build"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(c.Path, "build", "a.o"), "x")
+	write(t, filepath.Join(c.Path, "build", "b.o"), "x")
+	// Ignored files don't show up as uncommitted, which is why Ignored exists.
+	if st, err := Diff(c.Path, c.BaseCommit); err != nil || st.Dirty != 0 {
+		t.Fatalf("Diff = %+v, %v", st, err)
+	}
+	if n, err := Ignored(c.Path); err != nil || n != 2 { // .env + build/
+		t.Fatalf("Ignored = %d, %v; want 2", n, err)
+	}
+}

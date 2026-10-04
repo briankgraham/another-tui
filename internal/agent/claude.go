@@ -38,7 +38,8 @@ func (claude) Command(o LaunchOpts) []string {
 	} else {
 		args = append(args, "--session-id", o.SessionID)
 		if o.Prompt != "" {
-			args = append(args, o.Prompt)
+			// "--" so a prompt like "-p foo" isn't parsed as a flag.
+			args = append(args, "--", o.Prompt)
 		}
 	}
 	return args
