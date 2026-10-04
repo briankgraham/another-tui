@@ -88,7 +88,7 @@ func desktop(title, body, url string) {
 		dialog := []string{"-e", "set r to display dialog " + appleQuote(body) +
 			" with title " + appleQuote(title) +
 			` buttons {"Dismiss", "Go to terminal"} giving up after 30`,
-			"-e", `if button returned of r is "Go to terminal" then tell application ` + appleQuote(terminalApp()) + ` to activate`}
+			"-e", `if button returned of r is "Go to terminal" then tell application id ` + appleQuote(terminalBundleID()) + ` to activate`}
 		if _, err := exec.LookPath("terminal-notifier"); err == nil {
 			script := `terminal-notifier -title "$1" -message "$2" ${3:+-activate "$3"} || { shift 3; exec osascript "$@"; }`
 			start("sh", append([]string{"-c", script, "sh", title, body, terminalBundleID()}, dialog...)...)
@@ -103,8 +103,13 @@ func desktop(title, body, url string) {
 	}
 }
 
-// terminalBundleID guesses the macOS app hosting this terminal, or "".
+// terminalBundleID is the macOS app hosting this terminal, or "". macOS sets
+// __CFBundleIdentifier for the app and tmux passes it down, whereas inside tmux
+// TERM_PROGRAM is just "tmux".
 func terminalBundleID() string {
+	if id := os.Getenv("__CFBundleIdentifier"); id != "" {
+		return id
+	}
 	return map[string]string{
 		"Apple_Terminal": "com.apple.Terminal",
 		"iTerm.app":      "com.googlecode.iterm2",
@@ -112,16 +117,6 @@ func terminalBundleID() string {
 		"WezTerm":        "com.github.wez.wezterm",
 		"vscode":         "com.microsoft.VSCode",
 	}[os.Getenv("TERM_PROGRAM")]
-}
-
-// terminalApp is the name of the app hosting this terminal, for AppleScript.
-func terminalApp() string {
-	if n := map[string]string{
-		"iTerm.app": "iTerm", "ghostty": "Ghostty", "WezTerm": "WezTerm", "vscode": "Visual Studio Code",
-	}[os.Getenv("TERM_PROGRAM")]; n != "" {
-		return n
-	}
-	return "Terminal"
 }
 
 // linkLabel turns a PR URL into "Open PR #123".
