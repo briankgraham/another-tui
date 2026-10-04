@@ -56,7 +56,7 @@ func run(args []string) error {
 	case "":
 		return startOrAttach()
 	case "sidebar":
-		_, err := tea.NewProgram(ui.NewSidebar(), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+		_, err := tea.NewProgram(ui.NewSidebar(), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus()).Run()
 		return err
 	case "placeholder":
 		_, err := tea.NewProgram(ui.Placeholder{}, tea.WithAltScreen()).Run()
