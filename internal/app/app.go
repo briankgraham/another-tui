@@ -690,7 +690,7 @@ func NextNeedingAttention(st store.State, stage string) (string, bool) {
 }
 
 // Alert sounds/notifies for a session event unless the user is looking at it.
-// A non-empty url is opened when the notification is clicked.
+// A non-empty url is opened when the notification is clicked, and is shown even then.
 func Alert(s store.Session, k notify.Kind, body, url string) {
 	a, err := agent.Get(s.Agent)
 	if err != nil {
