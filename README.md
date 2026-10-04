@@ -12,6 +12,10 @@ Run several Claude Code sessions side by side. Each session gets its own git wor
 └──────────────────────┴──────────────────────────────┘
 ```
 
+![The ctabs sidebar next to a live session: four tabs showing working, needs you, done and running a tool](docs/img/sidebar.svg)
+
+The sidebar shows each session's state (working, running a tool, needs you, done), model, diff size against its base branch (`+added −removed · files`), time since the last change, and your last prompt. The header counts sessions that need you, are done, or are running.
+
 ## Install & run
 
 ```sh
@@ -19,13 +23,17 @@ go install .          # or: go build -o ctabs .
 cd your/repo && ctabs
 ```
 
-You need `tmux` and the `claude` CLI on your PATH.
+You need Go (to build), `tmux` (3.3 or newer recommended), `git`, and the `claude` CLI on your PATH.
+
+Other commands: `ctabs new`, `ctabs close [id]`, `ctabs switch next|prev|N`, and `ctabs kill` (stops the ctabs tmux server; sessions resume on the next start). `ctabs help` lists them all.
 
 ## Keys
 
 **`Ctrl+]` from anywhere opens the ctabs menu.** It has new session, close or rename the current one, next needing you, jump to any session (`1`–`9`), focus sidebar, detach, and quit. It works in every terminal. You can change the key with `"leader"` in the config, e.g. `"C-\\"`.
 
-In the sidebar: `j`/`k` preview, `enter` focus, `n` new, `.` next needing you, `r` rename, `x` close, `R` restart an exited session, `?` help. You can also click and scroll with the mouse.
+![The ctabs menu open over a session](docs/img/menu.svg)
+
+In the sidebar: `j`/`k` (or arrows) switch, `1`–`9` jump, `enter` focus, `n` new, `.` next needing you, `r` rename, `x` close and remove the worktree, `R` restart an exited session, `q` detach, `?` help. You can also click and scroll with the mouse.
 
 Alt shortcuts (`M-n` new, `M-x` close, `M-j`/`M-k` switch, `M-1`…`M-9` jump, `M-.` next needing you, `M-s` sidebar, `M-q` detach) also work if your terminal sends Option as Meta. In iTerm2 that's Settings → Profiles → Keys → Left Option key → **Esc+**.
 
@@ -37,6 +45,7 @@ A new session starts by asking which repository to work in.
 - **Browse** (`tab`) walks folders like a file manager. Repositories show `⎇` and their branch. `enter` chooses a repository or opens a folder, `←` goes up, `→` opens, typing filters, and `/` opens the highlighted folder.
 - Type or paste a path in either mode (`~/doc/tui`, `/srv/app`) to jump there. Each part is fuzzy-matched, so it doesn't need to be exact.
 
+## How it works
 
 - **tmux:** ctabs runs a private tmux server (`tmux -L ctabs`), so it never touches your own tmux setup. The sidebar is a Bubble Tea app. Hidden sessions wait in a background tmux session and get swapped in when you select them.
 - **Worktrees:** each session runs in `~/.ctabs/worktrees/<repo>/<name>` on branch `ctabs/<name>`, based on the branch you choose. Closing a session removes the worktree and optionally deletes the branch.
