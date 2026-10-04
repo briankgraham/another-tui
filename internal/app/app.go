@@ -530,8 +530,8 @@ func configure(exe, sidebar string) error {
 		{"set", "-g", "set-titles", "on"},
 		{"set", "-g", "set-titles-string", "ctabs"},
 		{"set", "-g", "pane-border-lines", "single"},
-		{"set", "-g", "pane-border-style", "fg=colour238"},
-		{"set", "-g", "pane-active-border-style", "fg=colour141"},
+		{"set", "-g", "pane-border-style", "fg=colour236"},
+		{"set", "-g", "pane-active-border-style", "fg=colour141,bold"},
 		{"set", "-g", "popup-border-lines", "rounded"},
 		{"set", "-g", "popup-border-style", "fg=colour141"},
 	} {

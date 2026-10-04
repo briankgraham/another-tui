@@ -74,6 +74,7 @@ type Sidebar struct {
 	w, h      int
 	spin      spinner.Model
 	help      bool
+	blurred   bool // the sidebar pane lost terminal focus
 	err       string
 	errAt     time.Time
 	watch     chan struct{}
@@ -222,6 +223,10 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, loadDiffs(m.rows))
 		}
 		return m, tea.Batch(cmds...)
+	case tea.FocusMsg:
+		m.blurred = false
+	case tea.BlurMsg:
+		m.blurred = true
 	case tea.MouseMsg:
 		return m, m.mouse(msg)
 	case tea.KeyMsg:
@@ -378,8 +383,12 @@ func (m *Sidebar) View() string {
 	w := max(m.w, 12)
 	var b strings.Builder
 
-	b.WriteString(spread(" "+sTitle.Render("ctabs"), m.summary()+" ", w) + "\n")
-	b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
+	title, rule := sTitle.Render("● ctabs"), sSelBar.Render(strings.Repeat("━", w))
+	if m.blurred {
+		title, rule = sDim.Render("○ ctabs"), sFaint.Render(strings.Repeat("─", w))
+	}
+	b.WriteString(spread(" "+title, m.summary()+" ", w) + "\n")
+	b.WriteString(rule + "\n")
 
 	bodyH := m.h - headerHeight - footerHeight
 	var body []string
@@ -404,7 +413,11 @@ func (m *Sidebar) View() string {
 	}
 	b.WriteString(strings.Join(body[:max(bodyH, 0)], "\n") + "\n")
 
-	b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
+	if m.blurred {
+		b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
+	} else {
+		b.WriteString(sSelBar.Render(strings.Repeat("━", w)) + "\n")
+	}
 	hints := " " + sKey.Render(app.LeaderLabel()) + sDim.Render(" menu ") + sKey.Render("n") + sDim.Render(" new ") + sKey.Render("x") + sDim.Render(" close ") + sKey.Render(".") + sDim.Render(" next ") + sKey.Render("?")
 	b.WriteString(ansi.Truncate(hints, w, ""))
 	return b.String()
@@ -416,6 +429,9 @@ func (m *Sidebar) rowLines(i, w int) []string {
 	bar := " "
 	if selected {
 		bar = sSelBar.Render("▌")
+		if m.blurred {
+			bar = sDim.Render("▏")
+		}
 	}
 	inner := w - 3
 
@@ -424,7 +440,7 @@ func (m *Sidebar) rowLines(i, w int) []string {
 		idx = " "
 	}
 	name := sText.Render(ansi.Truncate(r.s.Name, inner-2, "…"))
-	if selected {
+	if selected && !m.blurred {
 		name = sName.Foreground(cAccent).Render(ansi.Truncate(r.s.Name, inner-2, "…"))
 	}
 	line1 := idx + " " + name
